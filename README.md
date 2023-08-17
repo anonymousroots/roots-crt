@@ -1,5 +1,5 @@
 # Computing $e$-th roots in number fields
-Code given in support of ISSAC'23 submission #7564
+Code given in support of ALENEX24 submission #6
 
 
 ### Environment
