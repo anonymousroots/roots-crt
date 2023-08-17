@@ -1,5 +1,5 @@
 # Code in support of ALENEX24 Submission #6
-# Copyright 2023, Olivier Bernard, Andrea Lesavourey
+# Copyright 2023, <anonymous-roots-crt>
 # GPL-3.0-only (see LICENSE file)
 
 proof.arithmetic(False);   # Essentially, use pseudo-primality tests everywhere
