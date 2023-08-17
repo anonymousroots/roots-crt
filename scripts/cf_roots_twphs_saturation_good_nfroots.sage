@@ -1,4 +1,4 @@
-# Code in support of ISSAC'23 Submission #7564
+# Code in support of ALENEX24 Submission #6
 # Copyright 2023, <anonymous-roots-crt>
 # GPL-3.0-only (see LICENSE file)
 
