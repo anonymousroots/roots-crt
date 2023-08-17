@@ -1,9 +1,8 @@
-# Code in support of ISSAC'23 Submission #7564
-# Copyright 2023, <anonymous-roots-crt>
+# Code in support of ALENEX24 Submission #6
+# Copyright 2023, Olivier Bernard, Andrea Lesavourey
 # GPL-3.0-only (see LICENSE file)
 
 proof.arithmetic(False);   # Essentially, use pseudo-primality tests everywhere
-
 
 # ----------------------------------------------------------------------------------
 # Some efficient (dedicated to cyclotomic fields) number theoretic functions
@@ -53,8 +52,6 @@ def cf_can_inert(m):
 def cf_conductor(K):
     return K.gen().multiplicative_order();
 
-
-
 # ----------------------------------------------------------------------------------
 # Subproduct trees (recursive implementation)
 
@@ -97,6 +94,27 @@ def mod_tree_all(T, all_u):
 # ----------------------------------------------------------------------------------
 # p-adic lifting (Hensel)
 
+# get suitable prime for p-adic lifting
+def cf_padic_get_inert(K, e):
+    m = K.conductor()
+    n = euler_phi(m)
+    
+    pp, ee = is_prime_power(m, get_data=True); # Since 1 < m != 2[4], only way is m=4 or pp^ee
+    # An element of order phi(m) ?
+    r = ZZ(IntegerModRing(m).multiplicative_generator());
+    # => inert primes are = r [m] (many choices)
+
+    p = randint(2**60, 2**61)
+    p = next_prime_mod_m(m, r, next=p); q = ZZ(p**n);
+
+    if ee==1: # 1/e does exist mod (p^n - 1)/e
+        _d = gcd(e,(q-1)//e);
+        while _d != 1:
+            p = next_prime_mod_m(m, r, next=p); q = ZZ(p**K.degree()); 
+            _d = gcd(e,(q-1)//e);
+    return p, q
+
+
 # We compute the "inverse" e-th root: a^(1/e - 1)
 # So Let g(x) = a^{e-1} x^e - 1
 #        xi+1 = xi - (1/e).xi.g(xi)
@@ -104,28 +122,34 @@ def mod_tree_all(T, all_u):
 # --> a.xk = a^{1/e} mod p^k
 def cf_padic_lifting(elts, exps, e, B):
     Zx.<x> = PolynomialRing(ZZ);
-    
     K = elts[0].parent();
     m = cf_conductor(K);
     assert(cf_can_inert(m)); # Needs inert primes (i.e. cyclic ZZ/mZZ*)
-    pp, ee = is_prime_power(m, get_data=True); # Since 1 < m != 2[4], only way is m=4 or pp^ee
-    # An element of order phi(m) ?
-    r = ZZ(IntegerModRing(m).multiplicative_generator());
-    # => inert primes are = r [m] (many choices)
-    _d = 0
-    p = randint(2**60, 2**61)
-    if ee==1: # 1/e does exist mod (p^n - 1)/e
-        while _d!=1:
-            p = next_prime_mod_m(m, r, next=p);   print("inert p: ", p, "m: ", m, "r: ", r);
-            Fp = GF(p, proof=False);
-            q = ZZ(p**K.degree()); Fq = GF(q, proof=False, modulus=K.polynomial(), name='u'); # if modulus not given, takes forever
-            _d = gcd(e,(q-1)//e); 
-    else:     # 1/e cannot exist mod (p^n - 1)/e
-        while _d==0:
-            p = next_prime_mod_m(m, r, next=p);   print("inert p: ", p, "m: ", m, "r: ", r);
-            Fp = GF(p, proof=False);
-            q = ZZ(p**K.degree()); Fq = GF(q, proof=False, modulus=K.polynomial(), name='u'); # if modulus not given, takes forever
-            _d = gcd(e,(q-1)//e); 
+
+    pp, ee = is_prime_power(mK, get_data=True);
+    p, q = cf_padic_get_inert(K, e);
+
+    # pp, ee = is_prime_power(m, get_data=True); # Since 1 < m != 2[4], only way is m=4 or pp^ee
+    # # An element of order phi(m) ?
+    # r = ZZ(IntegerModRing(m).multiplicative_generator());
+    # # => inert primes are = r [m] (many choices)
+    # _d = 0
+    # p = randint(2**60, 2**61)
+    # if ee==1: # 1/e does exist mod (p^n - 1)/e
+    #     while _d!=1:
+    #         p = next_prime_mod_m(m, r, next=p);   print("inert p: ", p, "m: ", m, "r: ", r);
+    #         Fp = GF(p, proof=False);
+    #         q = ZZ(p**K.degree()); Fq = GF(q, proof=False, modulus=K.polynomial(), name='u'); # if modulus not given, takes forever
+    #         _d = gcd(e,(q-1)//e); 
+    # else:     # 1/e cannot exist mod (p^n - 1)/e
+    #     while _d==0:
+    #         p = next_prime_mod_m(m, r, next=p);   print("inert p: ", p, "m: ", m, "r: ", r);
+    #         Fp = GF(p, proof=False);
+    #         q = ZZ(p**K.degree()); Fq = GF(q, proof=False, modulus=K.polynomial(), name='u'); # if modulus not given, takes forever
+    #         _d = gcd(e,(q-1)//e);
+
+    Fp = GF(p, proof=False);
+    Fq = GF(q, proof=False, modulus=K.polynomial(), name='u'); # if modulus not given, takes forever
     print("ff done", flush=True);
     Fpy.<y> = PolynomialRing(Fp); gp = Fpy(K.polynomial());
     Fqz.<z> = PolynomialRing(Fq);
@@ -146,10 +170,10 @@ def cf_padic_lifting(elts, exps, e, B):
     t = cputime(t);
     # print("time se^{{e-1}} mod P^k: {:.2f}".format(t)); 
     # print("se^{{e-1}} mod P^k:", a_Pk);
-
+    
     # Root in base residue field: first approximation
     t = cputime(); a_P = Fq(Fpy(a_Pk)); t = cputime(t);
-    if ee!=1:
+    if ee != 1:
         # We should use [AMM77] generalization of Tonnelli-Shanks...
         # Using Cantor-Zassenhaus instead. Seems good enough ?
         pol_pow = a_P*z**e - 1; # [NB] Should compute this mod gt (if e is about not small)
@@ -181,7 +205,7 @@ def cf_padic_lifting(elts, exps, e, B):
     assert(_k == k);
     s_P = (Rpk(is_P)*se_Pk).mod(gt);
     
-    # print("\n"+"-"*15+"End of p-adic lifting" + "-"*15);
+    print("\n"+"-"*15+"End of p-adic lifting" + "-"*15);
     # assert(power_mod(s_P, e, gt) == se_Pk); # Takes time
     s_P = Zx(s_P);
     s   = K([ (_s if _s < p**k/2. else _s - p**k) for _s in s_P ]);
@@ -332,12 +356,13 @@ def belabas(elts, exps, e, lurs=[]):
 # CRT-based method
 
 def root_mod_p(elts, exps, p, eth):
-    assert(mod(p, eth)!=1);
+    assert(gcd(p-1, eth)==1); # Otherwise we have multiple choices
+
     K = elts[0].parent();
     # Define Fp/[y]/1/e mod p
     Fp  = GF(p);
     Fpy = PolynomialRing(Fp, name='y');
-    inv_e  = ZZ(mod(1/eth, p-1));
+    inv_e = ZZ(mod(1/eth, p-1));
     # Orbit above p, plus CRT stuff
     orb_p = nf_primes_above(K, p);
     gx_p  = [ Fpy(_pid[1]) for _pid in orb_p ];
@@ -356,7 +381,7 @@ def root_mod_p(elts, exps, p, eth):
     res_idp = [];
     T = cputime();
     for p_idx in range(len(gx_p)):
-        t = cputime(); _res_se    = prod(su_gx_p[p_idx][j]**exps[j] for j in range(len(elts))); # print("\tproduct: {:.2f}".format(cputime(t)));
+        t = cputime(); _res_se    = prod(su_gx_p[p_idx][j]**ZZ(mod(exps[j],p-1)) for j in range(len(elts))); # print("\tproduct: {:.2f}".format(cputime(t)));
         _res_s     = _res_se**inv_e;
         # assert(_res_s^eth == _res_se);
         res_idp.append(Fpy(_res_s));
@@ -382,15 +407,16 @@ def cf_root_crt(elts, exps, e, L, m):
     - 'L': number field; field where we want to retrieve a e-th root;
     Q(zeta_e) is *not* a subfield of L
     """
+    assert(gcd(m,e) == 1); # At the moment, only works with split primes p=1[m], and gcd(p-1,e)==1
     Zx.<x> = PolynomialRing(ZZ);
-    bound = sum([abs(exps[i]) * abs(log(vector(elts[i]).norm(2), 2))
+    bound = sum([abs(ZZ(exps[i])) * abs(log(vector(elts[i]).norm(2), 2))
                  for i in range(len(elts))]);
     bound = 2**(1.5*(bound/e).round());
     crt_p = [];
     _p0 = next_prime(2**60);
     _p0 = _p0 + m - _p0.mod(m) + 1; # = 1 mod m
     while (prod(crt_p) < 2 * bound): # factor 2 because of \pm signs
-        while ((not is_prime(_p0)) or (_p0%e ==1)):
+        while ((not is_prime(_p0)) or gcd(_p0-1, e) > 1): # gcd > 1 better than _p0%e==1 when e is a prime-power
             _p0 += m;
         crt_p.append(_p0);
         _p0 += m;
@@ -500,8 +526,9 @@ def cf_relative_norms(A, L, K):
         _ax = _a.list();
         in_t = cputime();
         for _i in embLK: # Necessary to apply mod x^mL-1 at each step
-            _axi = Zx(sum( [ _ax[_k]*x**ZZ(mod(_k*_i,mL)) for _k in range(len(_ax)) ] ));
+            _axi = Zx(sum([_ax[_k]*x**ZZ(mod(_k*_i,mL)) for _k in range(len(_ax))]));
             _na  = (_na*_axi).mod(xml_pol);
+
         in_t = cputime(in_t); # print("inner ", in_t);
         _na = _na.mod(phiL);
         _na = _na(y).mod(ext_pol); 
@@ -625,7 +652,7 @@ def cf_roots_rec(U, Exps, e, L, mL, size_primes=60):
     - 'L': number field; field where we want to retrieve an e-th root of B
     """
 
-    if mL%e != 0:               # good case : we can do a CRT à la Thomé
+    if gcd(mL,e) == 1:               # good case : we can do a CRT à la Thomé
         print("can do crt");
         return cf_root_crt(U, Exps, e, L, mL), 0;
     else:                       # bad case : factor the conductor to know what to do
